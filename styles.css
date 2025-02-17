@@ -1,0 +1,35 @@
+.ytp-caption-segment {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+  color: white !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.8) !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  margin: 4px 0 !important;
+  line-height: 1.5 !important;
+}
+
+.caption-window.ytp-caption-window-bottom {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  bottom: 60px !important;
+  text-align: center !important;
+  width: auto !important;
+  max-width: 80% !important;
+  pointer-events: auto !important;
+}
+
+.caption-word {
+  display: inline-block;
+  padding: 0 2px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  margin: 0 1px;
+}
+
+.caption-word:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}

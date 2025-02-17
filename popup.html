@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 10px;
+      font-family: Arial, sans-serif;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+    }
+    .word-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .word-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+    }
+    .word-text {
+      flex: 1;
+    }
+    .word-english {
+      font-weight: bold;
+      color: #333;
+    }
+    .word-portuguese {
+      font-size: 12px;
+      color: #666;
+    }
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #ff4444;
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 14px;
+    }
+    .delete-btn:hover {
+      background-color: #ffeeee;
+      border-radius: 4px;
+    }
+    .empty-state {
+      text-align: center;
+      color: #666;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">Palavras Salvas</div>
+    <button id="clearAll" class="delete-btn">Limpar Tudo</button>
+  </div>
+  <div id="wordList" class="word-list">
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
