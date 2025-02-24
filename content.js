@@ -81,6 +81,10 @@ function processCaptionWindow(captionWindow) {
     const wordElement = e.target.closest('.caption-word');
     if (wordElement) {
       handleWordHover(wordElement.textContent, wordElement);
+      const video = document.querySelector('video');
+      if (video) {
+        video.pause();
+      }
     }
   });
   
@@ -88,6 +92,10 @@ function processCaptionWindow(captionWindow) {
     const wordElement = e.target.closest('.caption-word');
     if (wordElement) {
       tooltip.style.display = 'none';
+      const video = document.querySelector('video');
+      if (video) {
+        video.play();
+      }
     }
   });
   
