@@ -1,32 +1,153 @@
-const tooltip = document.createElement('div');
-tooltip.style.cssText = `
-  position: fixed;
-  background: rgba(0, 0, 0, 0.9);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  z-index: 10000;
-  pointer-events: none;
-  display: none;
-  max-width: 200px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-`;
-document.body.appendChild(tooltip);
+async function fetchCustomSubtitles(videoId) {
+  const userEndpoint = `https://www.youtube.com/api/timedtext?v=${videoId}&ei=P2G7Z57dKdCZ-LAP7t30uAM&caps=asr&opi=112496729&xoaf=5&hl=en&ip=0.0.0.0&ipbits=0&expire=1740358575&sparams=ip,ipbits,expire,v,ei,caps,opi,xoaf&signature=1B412954867693340AD2494D5180E1DBFD5289E2.6F7F5BAB87378A0A1ECA3059FF7EB9EDF20F1E24&key=yt8&kind=asr&lang=en&fmt=json3`;
+  try {
+    const response = await fetch(userEndpoint);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching custom subtitles:', error);
+    return null;
+  }
+}
+
+function parseCustomSubtitles(data) {
+  if (!data || !data.events) {
+    console.error('Invalid subtitle data:', data);
+    return [];
+  }
+
+  const subtitles = data.events.map(event => {
+    if (!event.segs) return null;
+
+    const startTime = event.tStartMs / 1000;
+    const duration = event.dDurationMs / 1000;
+    const text = event.segs.map(seg => seg.utf8).join('');
+
+    return {
+      startTime,
+      duration,
+      text
+    };
+  }).filter(subtitle => subtitle !== null);
+
+  return subtitles;
+}
+
+function addCustomSubtitleButton() {
+  const videoPlayer = document.querySelector('.html5-video-player');
+  if (!videoPlayer) return;
+
+  const button = document.createElement('button');
+  button.textContent = 'Custom Subtitles';
+  button.className = 'ytp-button';
+  button.style.cssText = `
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    margin-left: 10px;
+    cursor: pointer;
+    border-radius: 3px;
+  `;
+
+  let isEnabled = false;
+  button.addEventListener('click', async () => {
+    isEnabled = !isEnabled;
+    button.textContent = isEnabled ? 'Disable Custom Subtitles' : 'Custom Subtitles';
+
+    if (isEnabled) {
+      const videoId = window.location.search.split('v=')[1].split('&')[0];
+      const subtitleData = await fetchCustomSubtitles(videoId);
+      const subtitles = parseCustomSubtitles(subtitleData);
+      displayCustomSubtitles(subtitles);
+    } else {
+      clearCustomSubtitles();
+    }
+  });
+
+  const controlBar = document.querySelector('.ytp-right-controls');
+  if (controlBar) {
+    controlBar.appendChild(button);
+  }
+}
+
+let subtitleContainer = null;
+
+function displayCustomSubtitles(subtitles) {
+  const videoPlayer = document.querySelector('.html5-video-player');
+  if (!videoPlayer) return;
+
+  subtitleContainer = document.createElement('div');
+  subtitleContainer.className = 'custom-subtitles-container';
+  subtitleContainer.style.cssText = `
+    position: absolute;
+    bottom: 60px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    text-align: center !important;
+    width: auto !important;
+    max-width: 80% !important;
+    pointer-events: auto !important;
+    color: white !important;
+    font-size: 18px !important;
+    font-weight: 500 !important;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.8) !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    margin: 4px 0 !important;
+    line-height: 1.5 !important;
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    z-index: 20;
+  `;
+
+  videoPlayer.appendChild(subtitleContainer);
+
+  const video = document.querySelector('video');
+  video.addEventListener('timeupdate', () => {
+    const currentTime = video.currentTime + 1.5;
+    const activeSubtitle = subtitles.find(subtitle =>
+      currentTime >= subtitle.startTime && currentTime <= subtitle.startTime + subtitle.duration
+    );
+
+    if (activeSubtitle) {
+      // Clear previous content
+      subtitleContainer.innerHTML = '';
+      
+      // Split text into words and wrap each in a span
+      activeSubtitle.text.split(' ').forEach(word => {
+        const wordSpan = document.createElement('span');
+        wordSpan.textContent = word + ' ';
+        wordSpan.style.cursor = 'pointer';
+        wordSpan.style.position = 'relative';
+        
+        // Add hover listeners for each word
+        wordSpan.addEventListener('mouseenter', async (e) => {
+          try {
+            const translation = await translateText(word.trim());
+            showTranslationTooltip(e.target, translation);
+          } catch (error) {
+            console.error('Translation error:', error);
+          }
+        });
+        
+        wordSpan.addEventListener('mouseleave', hideTranslationTooltip);
+        
+        subtitleContainer.appendChild(wordSpan);
+      });
+    } else {
+      subtitleContainer.textContent = '';
+    }
+  });
+}
+
+function clearCustomSubtitles() {
+  const subtitleContainer = document.querySelector('.custom-subtitles-container');
+  if (subtitleContainer) {
+    subtitleContainer.remove();
+  }
+}
 
 const translationCache = new Map();
-
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
 
 async function translateText(text) {
   if (translationCache.has(text)) {
@@ -46,117 +167,29 @@ async function translateText(text) {
   }
 }
 
-function saveWord(english, portuguese) {
-  chrome.storage.local.get(['savedWords'], function(result) {
-    const savedWords = result.savedWords || [];
-    if (!savedWords.some(word => word.english === english)) {
-      savedWords.push({ english, portuguese });
-      chrome.storage.local.set({ savedWords });
-    }
-  });
-}
+let tooltip = null;
 
-const handleWordHover = debounce(async (word, element) => {
-  const translation = await translateText(word);
+function showTranslationTooltip(event, translation) {
+  if (tooltip) tooltip.remove();
+  
+  tooltip = document.createElement('div');
+  tooltip.className = 'translation-tooltip';
   tooltip.textContent = translation;
-  tooltip.style.display = 'block';
   
-  const rect = element.getBoundingClientRect();
-  tooltip.style.left = `${rect.left}px`;
-  tooltip.style.top = `${rect.top - 30}px`;
-}, 200);
-
-let isProcessing = false;
-function processCaptionWindow(captionWindow) {
-  if (!captionWindow || isProcessing) return;
+  const subRect = subtitleContainer.getBoundingClientRect();
+  tooltip.style.position = 'fixed';
+  tooltip.style.top = `${subRect.top - 40}px`;
+  tooltip.style.left = `50%`;
+  tooltip.style.transform = 'translateX(-50%)';
   
-  isProcessing = true;
-  
-  captionWindow.style.margin = '0 auto';
-  captionWindow.style.left = '50%';
-  captionWindow.style.transform = 'translateX(-50%)';
-  captionWindow.style.textAlign = 'center';
-  
-  captionWindow.addEventListener('mouseover', async (e) => {
-    const wordElement = e.target.closest('.caption-word');
-    if (wordElement) {
-      handleWordHover(wordElement.textContent, wordElement);
-    }
-  });
-  
-  captionWindow.addEventListener('mouseout', (e) => {
-    const wordElement = e.target.closest('.caption-word');
-    if (wordElement) {
-      tooltip.style.display = 'none';
-    }
-  });
-  
-  captionWindow.addEventListener('click', async (e) => {
-    const wordElement = e.target.closest('.caption-word');
-    if (wordElement) {
-      const word = wordElement.textContent;
-      const translation = await translateText(word);
-      saveWord(word, translation);
-      
-      wordElement.style.color = '#4CAF50';
-      setTimeout(() => {
-        wordElement.style.color = '';
-      }, 500);
-    }
-  });
-  
-  isProcessing = false;
+  document.body.appendChild(tooltip);
 }
 
-function enhanceCaptions() {
-  const captionWindow = document.querySelector('.caption-window.ytp-caption-window-bottom');
-  if (!captionWindow) return;
-
-  processCaptionWindow(captionWindow);
-
-  const segments = captionWindow.querySelectorAll('.ytp-caption-segment');
-  segments.forEach(segment => {
-    if (segment.dataset.processed) return;
-    
-    const words = segment.textContent.trim().split(/\s+/);
-    segment.innerHTML = words.map(word => 
-      `<span class="caption-word">${word}</span>`
-    ).join(' ');
-    
-    segment.dataset.processed = 'true';
-  });
-}
-
-const throttle = (func, limit) => {
-  let inThrottle;
-  return function(...args) {
-    if (!inThrottle) {
-      func.apply(this, args);
-      inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
-    }
-  };
-};
-
-const observer = new MutationObserver(throttle((mutations) => {
-  mutations.forEach((mutation) => {
-    if (mutation.addedNodes.length) {
-      enhanceCaptions();
-    }
-  });
-}, 100));
-
-function initializeObserver() {
-  const videoPlayer = document.querySelector('.html5-video-player');
-  if (videoPlayer) {
-    observer.observe(videoPlayer, {
-      childList: true,
-      subtree: true
-    });
-    enhanceCaptions();
-  } else {
-    setTimeout(initializeObserver, 1000);
+function hideTranslationTooltip() {
+  if (tooltip) {
+    tooltip.remove();
+    tooltip = null;
   }
 }
 
-initializeObserver();
+setTimeout(addCustomSubtitleButton, 2000);
